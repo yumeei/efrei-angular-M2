@@ -6,7 +6,7 @@ import { TodoService } from '../../todos/services/todo';
 import { User } from '../../auth/models/user';
 import { Todo } from '../../todos/models/todo';
 import { lastValueFrom } from 'rxjs';
-import { StorageService } from '../../../storage/services/localStorage';
+import { StorageService } from '../../storage/services/localStorage';
 
 @Component({
   selector: 'app-admin',
@@ -258,14 +258,14 @@ export class AdminComponent implements OnInit {
   }
 
   async ngOnInit() {
-    // Vérifier que l'utilisateur est admin
+    // check that user is admin
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser || currentUser.role !== 'admin') {
       this.router.navigate(['/todos']);
       return;
     }
 
-    // Charger les données
+    // charge datas
     await this.loadUsers();
     await this.loadTodos();
   }
@@ -317,7 +317,7 @@ export class AdminComponent implements OnInit {
       const updated = await this.todoService.updateTodo(todo.id, { assignedTo: userId });
       if (updated) {
         console.warn(`Tâche "${updated.title}" assignée à ${userId}`);
-        // rafraîchir la liste
+        // refresh list
         this.todos.set(await this.todoService.getAllTodos());
       }
     } catch (err) {
