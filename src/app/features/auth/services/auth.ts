@@ -113,7 +113,7 @@
 
 import { inject, Injectable, signal } from '@angular/core';
 import { Observable, of, throwError, delay } from 'rxjs';
-import { User, LoginRequest, RegisterRequest } from '../models/user.model';
+import { User, LoginRequest, RegisterRequest } from '../models/user';
 import { StorageService } from '../../storage/services/localStorage';
 
 @Injectable({

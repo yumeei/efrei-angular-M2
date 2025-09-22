@@ -1,8 +1,8 @@
 import { Component, signal, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Todo } from '../models/todo.model';
-import { TodoService } from '../services/todo.service';
+import { Todo } from '../models/todo';
+import { TodoService } from '../services/todo';
 import { PriorityPipe } from '../../../shared/pipes/priority-pipe';
 import { HighlightDirective } from '../../../shared/directives/highlight.directive';
 

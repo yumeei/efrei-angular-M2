@@ -9,7 +9,7 @@ import {
   ValidationErrors,
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '../../services/auth';
 
 // Validateur personnalisé pour la confirmation de mot de passe
 function passwordMatchValidator(control: AbstractControl): ValidationErrors | null {

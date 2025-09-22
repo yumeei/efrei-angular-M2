@@ -1,5 +1,5 @@
 import { computed, Injectable, signal } from '@angular/core';
-import { Todo, CreateTodoRequest } from '../models/todo.model';
+import { Todo, CreateTodoRequest } from '../models/todo';
 
 @Injectable({
   providedIn: 'root',
@@ -38,7 +38,6 @@ export class TodoService {
     },
   ]);
 
-  // Simuler un délai réseau
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
