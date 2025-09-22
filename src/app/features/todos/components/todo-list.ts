@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Todo } from '../models/todo';
 import { TodoService } from '../services/todo';
 import { PriorityPipe } from '../../../shared/pipes/priority-pipe';
-import { HighlightDirective } from '../../../shared/directives/highlight.directive';
+import { HighlightDirective } from '../../../shared/directives/highlight';
 
 @Component({
   selector: 'app-todo-list',
@@ -275,10 +275,10 @@ export class TodoListComponent implements OnInit {
           priority: this.newTodo.priority,
         });
 
-        // Recharger les todos
+        // recharge todos
         await this.loadTodos();
 
-        // Réinitialiser le formulaire
+        // reset form
         this.newTodo.title = '';
         this.newTodo.description = '';
       } catch (error) {
