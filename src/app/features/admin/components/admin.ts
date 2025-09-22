@@ -1,10 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { AuthService } from '../../../auth/services/auth.service';
-import { TodoService } from '../../../todos/services/todo.service';
-import { User } from '../../../auth/models/user.model';
-import { Todo } from '../../../todos/models/todo.model';
+import { AuthService } from '../../auth/services/auth.service';
+import { TodoService } from '../../todos/services/todo.service';
+import { User } from '../../auth/models/user.model';
+import { Todo } from '../../todos/models/todo.model';
 import { lastValueFrom } from 'rxjs';
 import { StorageService } from '../../../storage/services/localStorage';
 
