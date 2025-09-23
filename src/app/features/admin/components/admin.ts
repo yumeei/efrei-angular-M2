@@ -1,11 +1,10 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth/services/auth';
 import { TodoService } from '../../todos/services/todo';
 import { User } from '../../auth/models/user';
 import { Todo } from '../../todos/models/todo';
-import { lastValueFrom } from 'rxjs';
 import { StorageService } from '../../storage/services/localStorage';
 
 @Component({
@@ -24,19 +23,19 @@ import { StorageService } from '../../storage/services/localStorage';
         <nav class="flex space-x-4">
           <button
             (click)="activeTab.set('users')"
-            [class.bg-blue-600]="activeTab() === 'users'"
+            [class.bg-violet-400]="activeTab() === 'users'"
             [class.text-white]="activeTab() === 'users'"
             [class.text-gray-700]="activeTab() !== 'users'"
-            class="px-4 py-2 rounded-md font-medium hover:bg-blue-700 hover:text-white transition-colors"
+            class="px-4 py-2 rounded-md font-medium hover:bg-violet-700 hover:text-white transition-colors"
           >
             Utilisateurs
           </button>
           <button
             (click)="activeTab.set('tickets')"
-            [class.bg-blue-600]="activeTab() === 'tickets'"
+            [class.bg-violet-400]="activeTab() === 'tickets'"
             [class.text-white]="activeTab() === 'tickets'"
             [class.text-gray-700]="activeTab() !== 'tickets'"
-            class="px-4 py-2 rounded-md font-medium hover:bg-blue-700 hover:text-white transition-colors"
+            class="px-4 py-2 rounded-md font-medium hover:bg-violet-700 hover:text-white transition-colors"
           >
             Tickets
           </button>
@@ -219,7 +218,7 @@ import { StorageService } from '../../storage/services/localStorage';
 
                           <button
                             (click)="assignTodo(todo, +userSelect.value)"
-                            class="px-3 py-1 bg-indigo-600 text-white text-sm font-medium rounded-lg shadow hover:bg-indigo-700 transition"
+                            class="px-3 py-1 bg-violet-600 text-white text-sm font-medium rounded-lg shadow hover:bg-violet-700 transition"
                           >
                             Assigner
                           </button>
@@ -238,63 +237,208 @@ import { StorageService } from '../../storage/services/localStorage';
     </div>
   `,
 })
+
 export class AdminComponent implements OnInit {
   private authService = inject(AuthService);
   private todoService = inject(TodoService);
   private router = inject(Router);
+  private storage = inject(StorageService);
 
+  // Writable signals for managing component state
   activeTab = signal<'users' | 'tickets'>('users');
   users = signal<User[]>([]);
   todos = signal<Todo[]>([]);
 
-  private storage = inject(StorageService);
+  // Additional writable signals for tracking system state
+  public readonly isLoading = signal(false);
+  public readonly lastUpdate = signal(new Date());
+  public readonly actionCount = signal(0);
+
+  // Computed signals for derived data and business logic
+  public readonly hasAdminAccess = computed(() => {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.role === 'admin';
+  });
+
+  // Administrative statistics computed from current data
+  public readonly adminStats = computed(() => ({
+    totalUsers: this.users().length,
+    totalTodos: this.todos().length,
+    adminUsers: this.users().filter(u => u.role === 'admin').length,
+    regularUsers: this.users().filter(u => u.role === 'user').length,
+    completedTodos: this.todos().filter(t => t.status === 'done').length,
+    pendingTodos: this.todos().filter(t => t.status === 'todo').length,
+    inProgressTodos: this.todos().filter(t => t.status === 'in-progress').length,
+    highPriorityTodos: this.todos().filter(t => t.priority === 'high').length
+  }));
+
+  // Current tab information with dynamic counts
+  public readonly currentTabData = computed(() => {
+    const tab = this.activeTab();
+    const stats = this.adminStats();
+
+    if (tab === 'users') {
+      return {
+        title: 'Utilisateurs',
+        count: stats.totalUsers,
+        details: `${stats.adminUsers} admin(s), ${stats.regularUsers} utilisateur(s)`
+      };
+    } else {
+      return {
+        title: 'Tickets',
+        count: stats.totalTodos,
+        details: `${stats.completedTodos} terminé(s), ${stats.pendingTodos} en attente`
+      };
+    }
+  });
+
+  // System health indicator based on high priority tickets ratio
+  public readonly systemHealth = computed(() => {
+    const stats = this.adminStats();
+    const highPriorityRatio = stats.totalTodos > 0 ?
+      (stats.highPriorityTodos / stats.totalTodos) * 100 : 0;
+
+    if (highPriorityRatio > 50) {
+      return { status: 'critical', color: 'text-red-600', message: 'Trop de tickets haute priorité' };
+    } else if (highPriorityRatio > 25) {
+      return { status: 'warning', color: 'text-yellow-600', message: 'Attention aux priorités' };
+    } else {
+      return { status: 'good', color: 'text-green-600', message: 'Système en bon état' };
+    }
+  });
+
+  // Comprehensive dashboard summary combining all metrics
+  public readonly dashboardSummary = computed(() => {
+    const stats = this.adminStats();
+    const actions = this.actionCount();
+    const health = this.systemHealth();
+    return {
+      ...stats,
+      actionsPerformed: actions,
+      healthStatus: health.status,
+      lastUpdate: this.lastUpdate()
+    };
+  });
 
   constructor() {
+    // Load saved data from local storage
     const savedTodos = this.storage.get<Todo[]>('todos') ?? [];
     const savedUsers = this.storage.get<User[]>('users') ?? [];
 
     this.todos.set(savedTodos);
     this.users.set(savedUsers);
+
+    // Initialize reactive effects
+    this.setupEffects();
+  }
+
+  // Setup reactive effects for monitoring and logging
+  private setupEffects() {
+    // Effect : Log admin statistics on every change
+    effect(() => {
+      const stats = this.adminStats();
+      console.warn(`Admin Dashboard: ${stats.totalUsers} users, ${stats.totalTodos} todos`);
+    }, { allowSignalWrites: false });
+
+    // Effect : Monitor system health and log critical states
+    effect(() => {
+      const health = this.systemHealth();
+      if (health.status === 'critical') {
+        console.warn('ADMIN ALERT: System in critical state -', health.message);
+      }
+    }, { allowSignalWrites: false });
+
+    // Effect : Redirect unauthorized users
+    effect(() => {
+      if (!this.hasAdminAccess()) {
+        console.warn('Admin access denied - redirecting to /todos');
+        this.router.navigate(['/todos']);
+      }
+    }, { allowSignalWrites: false });
+
+    // Effect : Update timestamp when data changes
+    effect(() => {
+      const users = this.users();
+      const todos = this.todos();
+      // Triggered when data changes
+      if (users.length > 0 || todos.length > 0) {
+        this.lastUpdate.set(new Date());
+      }
+    }, { allowSignalWrites: true });
+
+    // Effect : Log tab navigation
+    effect(() => {
+      const tab = this.activeTab();
+      const tabData = this.currentTabData();
+      console.warn(`Admin tab switched to: ${tab} (${tabData.count} items)`);
+    }, { allowSignalWrites: false });
+  }
+
+  private mergeUsers(mockUsers: User[], localUsers: User[]): User[] {
+    const combined: Record<string, User> = {};
+
+    // Ajouter les utilisateurs mock
+    for (const u of mockUsers) {
+      combined[u.email] = u;
+    }
+
+    // Ajouter les utilisateurs locaux, écrasant les doublons éventuels
+    for (const u of localUsers) {
+      combined[u.email] = u;
+    }
+
+    return Object.values(combined);
   }
 
   async ngOnInit() {
-    // check that user is admin
+    // Verify user has admin privileges
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser || currentUser.role !== 'admin') {
       this.router.navigate(['/todos']);
       return;
     }
 
-    // charge datas
+    // Load initial data
     await this.loadUsers();
     await this.loadTodos();
   }
 
   async loadUsers() {
     try {
-      // const users = await this.authService.getAllUsers();
-      // this.users.set(users);
-      const users = await lastValueFrom(this.authService.getAllUsers());
+      this.isLoading.set(true);
+      const users = this.authService.getAllUsers()();
       this.users.set(users);
+      console.warn('Users loaded:', users.length);
     } catch (error) {
       console.error('Erreur lors du chargement des utilisateurs:', error);
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
   async loadTodos() {
     try {
+      this.isLoading.set(true);
       const todos = await this.todoService.getAllTodos();
       this.todos.set(todos);
+      console.warn('Todos loaded:', todos.length);
     } catch (error) {
       console.error('Erreur lors du chargement des todos:', error);
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
   async deleteUser(userId: number) {
     if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
       try {
+        this.actionCount.update(count => count + 1);
         await this.authService.deleteUser(userId);
+        const localUsers = this.storage.get<User[]>('users') ?? [];
+        const updatedLocalUsers = localUsers.filter(u => u.id !== userId);
+        this.storage.set('users', updatedLocalUsers);
         await this.loadUsers();
+        console.warn('User deleted:', userId);
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);
       }
@@ -304,8 +448,10 @@ export class AdminComponent implements OnInit {
   async deleteTodo(todoId: number) {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce ticket ?')) {
       try {
+        this.actionCount.update(count => count + 1);
         await this.todoService.deleteTodo(todoId);
         await this.loadTodos();
+        console.warn('Todo deleted:', todoId);
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);
       }
@@ -314,10 +460,11 @@ export class AdminComponent implements OnInit {
 
   async assignTodo(todo: Todo, userId: number) {
     try {
+      this.actionCount.update(count => count + 1);
       const updated = await this.todoService.updateTodo(todo.id, { assignedTo: userId });
       if (updated) {
         console.warn(`Tâche "${updated.title}" assignée à ${userId}`);
-        // refresh list
+        // Refresh the list
         this.todos.set(await this.todoService.getAllTodos());
       }
     } catch (err) {
