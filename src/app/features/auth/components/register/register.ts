@@ -160,26 +160,30 @@ export class RegisterComponent {
     );
   }
 
-  onSubmit() {
+  async onSubmit() {
     if (this.registerForm.valid) {
       this.loading.set(true);
       this.error.set('');
 
-      const { ...userData } = this.registerForm.value;
+      const { name, email, password } = this.registerForm.value;
 
-      this.authService.register(userData).subscribe({
-        next: () => {
-          // on ne récupère pas l'utilisateur
+      try {
+        const success = await this.authService.register({ name, email, password });
+
+        if (success) {
           this.loading.set(false);
-          this.router.navigate(['/todos']);
-        },
-        error: (err) => {
+          this.router.navigate(['/auth/login']);
+        } else {
           this.loading.set(false);
-          this.error.set(err?.message || 'Erreur lors de la création du compte');
-        },
-      });
+          this.error.set(this.authService.error() || 'Erreur lors de la création du compte');
+        }
+      } catch (err: unknown) {
+        this.loading.set(false);
+        this.error.set(err instanceof Error ? err.message : 'Erreur lors de la création du compte');
+      }
     }
   }
+
 
   isFieldInvalid(fieldName: string): boolean {
     const field = this.registerForm.get(fieldName);
