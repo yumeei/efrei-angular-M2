@@ -29,7 +29,7 @@ import { AuthService } from '../../services/auth';
               id="email"
               type="email"
               formControlName="email"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500"
               [class.border-red-500]="isFieldInvalid('email')"
             />
             @if (isFieldInvalid('email')) {
@@ -48,7 +48,7 @@ import { AuthService } from '../../services/auth';
               id="password"
               type="password"
               formControlName="password"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500"
               [class.border-red-500]="isFieldInvalid('password')"
             />
             @if (isFieldInvalid('password')) {
@@ -63,7 +63,7 @@ import { AuthService } from '../../services/auth';
             <button
               type="submit"
               [disabled]="loginForm.invalid || loading()"
-              class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               @if (loading()) {
                 <span
@@ -104,24 +104,29 @@ export class LoginComponent {
     });
   }
 
-  onSubmit() {
-    if (this.loginForm.valid) {
-      this.loading.set(true);
-      this.error.set('');
+  async onSubmit() {
+    if (this.loginForm.invalid) return;
 
-      this.authService.login(this.loginForm.value).subscribe({
-        next: (user) => {
-          this.loading.set(false);
-          this.authService.setCurrentUser(user);
-          this.router.navigate(['/todos']);
-        },
-        error: (err) => {
-          this.loading.set(false);
-          this.error.set(err.message || 'Erreur de connexion');
-        },
-      });
+    const { email, password } = this.loginForm.value;
+    this.error.set('');
+
+    try {
+      const success = await this.authService.login(email, password);
+
+      if (success) {
+        const user = this.authService.getCurrentUser();
+        console.warn('Login OK:', user);
+
+        // redirect after login
+        this.router.navigate(['/']);
+      } else {
+        this.error.set(this.authService.error() || 'Email ou mot de passe incorrect');
+      }
+    } catch (err: unknown) {
+      console.error('Erreur login:', err);
     }
   }
+
 
   isFieldInvalid(fieldName: string): boolean {
     const field = this.loginForm.get(fieldName);
