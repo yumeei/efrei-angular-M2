@@ -1,253 +1,251 @@
-// import { Injectable, signal } from '@angular/core';
-// import { Observable, of, throwError, delay } from 'rxjs';
-// import { User, LoginRequest, RegisterRequest } from '../models/user.model';
-
-// @Injectable({
-//   providedIn: 'root',
-// })
-// export class AuthService {
-//   private currentUser = signal<User | null>(null);
-//   public currentUser$ = this.currentUser.asReadonly();
-
-//   // Mock data - utilisateurs de test
-//   private users: User[] = [
-//     {
-//       id: 1,
-//       name: 'Admin User',
-//       email: 'admin@example.com',
-//       role: 'admin',
-//       password: '',
-//     },
-//     {
-//       id: 2,
-//       name: 'Normal User',
-//       email: 'user@example.com',
-//       role: 'user',
-//       password: '',
-//     },
-//   ];
-
-//   // Mock data - mots de passe (en réalité, ils seraient hashés)
-//   private passwords: Record<string, string> = {
-//     'admin@example.com': 'admin123',
-//     'user@example.com': 'user123',
-//   };
-
-//   constructor() {
-//     // Vérifier s'il y a un utilisateur en session
-//     const savedUser = localStorage.getItem('currentUser');
-//     if (savedUser) {
-//       this.currentUser.set(JSON.parse(savedUser));
-//     }
-//   }
-
-//   login(credentials: LoginRequest): Observable<User> {
-//     const user = this.users.find((u) => u.email === credentials.email);
-//     const password = this.passwords[credentials.email];
-
-//     if (user && password === credentials.password) {
-//       // Simuler un délai réseau
-//       return of(user).pipe(delay(500));
-//     } else {
-//       return throwError(() => new Error('Email ou mot de passe incorrect'));
-//     }
-//   }
-
-//   register(userData: RegisterRequest): Observable<User> {
-//     // Vérifier si l'email existe déjà
-//     const existingUser = this.users.find((u) => u.email === userData.email);
-//     if (existingUser) {
-//       return throwError(() => new Error('Cet email est déjà utilisé'));
-//     }
-
-//     // Créer un nouvel utilisateur
-//     const newUser: User = {
-//       id: this.users.length + 1,
-//       name: userData.name,
-//       email: userData.email,
-//       role: 'user',
-//       password: '',
-//     };
-
-//     // Ajouter aux mock data
-//     this.users.push(newUser);
-//     this.passwords[userData.email] = userData.password;
-
-//     // Simuler un délai réseau
-//     return of(newUser).pipe(delay(500));
-//   }
-
-//   logout(): void {
-//     this.currentUser.set(null);
-//     localStorage.removeItem('currentUser');
-//   }
-
-//   getCurrentUser(): User | null {
-//     return this.currentUser();
-//   }
-
-//   getAllUsers(): Observable<User[]> {
-//     return of(this.users).pipe(delay(300));
-//   }
-
-//   deleteUser(userId: number): Observable<void> {
-//     const index = this.users.findIndex((u) => u.id === userId);
-//     if (index !== -1) {
-//       this.users.splice(index, 1);
-//       return of(void 0).pipe(delay(300));
-//     }
-//     return throwError(() => new Error('Utilisateur non trouvé'));
-//   }
-
-//   getToken(): string | null {
-//     const user = this.currentUser();
-//     return user ? `mock-token-${user.id}` : null;
-//   }
-
-//   // Méthode pour définir l'utilisateur connecté (utilisée après login)
-//   setCurrentUser(user: User): void {
-//     this.currentUser.set(user);
-//     localStorage.setItem('currentUser', JSON.stringify(user));
-//   }
-// }
-
-import { inject, Injectable, signal } from '@angular/core';
-import { Observable, of, throwError, delay } from 'rxjs';
-import { User, LoginRequest, RegisterRequest } from '../models/user';
+import { Injectable, inject, signal, computed, effect } from '@angular/core';
+import { User } from '../models/user';
 import { StorageService } from '../../storage/services/localStorage';
+import { MockApiService } from '../../../infrastructure/mock-data/mock-api.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private currentUser = signal<User | null>(null);
-  public currentUser$ = this.currentUser.asReadonly();
-
-  // Signals pour les utilisateurs et mots de passe
-  private users = signal<User[]>([]);
-  private passwords = signal<Record<string, string>>({});
-
   private storage = inject(StorageService);
+  private mockApi = inject(MockApiService);
+
+  // Writable signals for state management
+  private readonly _currentUser = signal<User | null>(null);
+  private readonly _isLoading = signal<boolean>(false);
+  private readonly _error = signal<string | null>(null);
+
+  // Computed signals (MANDATORY)
+  public readonly currentUser$ = computed(() => this._currentUser());
+  public readonly isAuthenticated = computed(() => !!this._currentUser());
+  public readonly isAdmin = computed(() => this._currentUser()?.role === 'admin');
+  public readonly loading = computed(() => this._isLoading() || this.mockApi.loading());
+  public readonly error = computed(() => this._error() || this.mockApi.error());
 
   constructor() {
-    // Charger l'utilisateur en session
-    const savedCurrentUser = this.storage.get<User>('currentUser');
-    if (savedCurrentUser) {
-      this.currentUser.set(savedCurrentUser);
+    this.setupEffects();
+    this.loadCurrentUser();
+  }
+
+  // Effects (AT LEAST 1 MANDATORY)
+  private setupEffects(): void {
+    // Effect: Save user to localStorage when current user changes
+    effect(() => {
+      const user = this._currentUser();
+      if (user) {
+        this.storage.set('currentUser', user);
+      } else {
+        this.storage.remove('currentUser');
+      }
+    }, { allowSignalWrites: false });
+
+    // Effect: Log authentication state changes
+    effect(() => {
+      const user = this._currentUser();
+      const isAuth = this.isAuthenticated();
+      console.warn(`Auth State: ${isAuth ? `Logged as ${user?.name}` : 'Not logged in'}`);
+    }, { allowSignalWrites: false });
+  }
+
+  // Load current user from localStorage on service initialization
+  private loadCurrentUser(): void {
+    const savedUser = this.storage.get<User>('currentUser');
+    if (savedUser) {
+      this._currentUser.set(savedUser);
     }
+  }
 
-    // Charger les utilisateurs depuis le localStorage
-    const savedUsers = this.storage.get<User[]>('users');
-    const savedPasswords = this.storage.get<Record<string, string>>('passwords');
+  // Using Mock API with delays
+  async login(email: string, password: string): Promise<boolean> {
+    try {
+      this._isLoading.set(true);
+      this._error.set(null);
 
-    if (savedUsers && savedUsers.length) {
-      this.users.set(savedUsers);
-    } else {
-      // Valeur par défaut si aucun user en storage
-      this.users.set([
-        { id: 1, name: 'Admin User', email: 'admin@example.com', role: 'admin', password: '' },
-        { id: 2, name: 'Normal User', email: 'user@example.com', role: 'user', password: '' },
-      ]);
+      // Retrieve users from Mock API (with delays)
+      // const users = await this.mockApi.getUsers();
+      // const user = users.find((u: User) => u.email === email);
+
+      const users = this.storage.get<User[]>('users') || [];
+      const passwords = this.storage.get<Record<string, string>>('passwords') || {};
+      const user = users.find(u => u.email === email);
+
+      if (user && passwords[email] === password) {
+        this._currentUser.set(user);
+        return true;
+      } else {
+        this._error.set('Email ou mot de passe incorrect');
+        return false;
+      }
+
+      // if (user && storedPassword === password) {
+      //   this._currentUser.set(user);
+      //   return true;
+      // } else {
+      //   this._error.set('Invalid email or password');
+      //   return false;
+      // }
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown login error';
+      this._error.set(errorMessage);
+      return false;
+    } finally {
+      this._isLoading.set(false);
     }
+  }
 
-    if (savedPasswords && Object.keys(savedPasswords).length) {
-      this.passwords.set(savedPasswords);
-    } else {
-      this.passwords.set({
-        'admin@example.com': 'admin123',
-        'user@example.com': 'user123',
+  // Register new user through Mock API
+  // async register(userData: { name: string; email: string; password: string }): Promise<boolean> {
+  //   try {
+  //     this._isLoading.set(true);
+  //     this._error.set(null);
+
+  //     // Check if email already exists
+  //     const users = await this.mockApi.getUsers();
+  //     const existingUser = users.find((u: User) => u.email === userData.email);
+  //     if (existingUser) {
+  //       this._error.set('Cet email est déjà utilisé');
+  //       return false;
+  //     }
+
+  //     // Create new user manually (not through Mock API)
+  //     const newUser: User = {
+  //       id: users.length + 1,
+  //       name: userData.name,
+  //       email: userData.email,
+  //       role: 'user',
+  //       password: ''
+  //     };
+
+  //     // Add to users list and save password
+  //     const updatedUsers = [...users, newUser];
+  //     this.storage.set('users', updatedUsers);
+  //     const passwords = this.storage.get<Record<string, string>>('passwords') || {};
+  //     passwords[userData.email] = userData.password;
+  //     this.storage.set('passwords', passwords);
+
+  //     // Auto-login the new user
+  //     // this._currentUser.set(newUser);
+  //     // Simulate network delay
+  //     await new Promise(resolve => setTimeout(resolve, 500));
+  //     return true;
+
+  //   } catch (error: unknown) {
+  //     const errorMessage = error instanceof Error ? error.message : 'Unknown registration error';
+  //     this._error.set(errorMessage);
+  //     return false;
+  //   } finally {
+  //     this._isLoading.set(false);
+  //   }
+  // }
+
+  async register(userData: { name: string; email: string; password: string }): Promise<boolean> {
+    try {
+      this._isLoading.set(true);
+      this._error.set(null);
+
+      // fetch all existing users
+      const mockUsers = await this.mockApi.getUsers();
+      const localUsers = this.storage.get<User[]>('users') ?? [];
+      const allUsers = [...mockUsers];
+
+      // add local users not in the mock file
+      localUsers.forEach(u => {
+        if (!allUsers.find(mu => mu.email === u.email)) {
+          allUsers.push(u);
+        }
       });
+
+      // check if email is already used
+      if (allUsers.find(u => u.email === userData.email)) {
+        this._error.set('Cet email est déjà utilisé');
+        return false;
+      }
+
+      // create the new user
+      const newUser: User = {
+        id: allUsers.length + 1,
+        name: userData.name,
+        email: userData.email,
+        role: 'user',
+        password: '',
+      };
+
+      allUsers.push(newUser);
+
+      // save to localStorage
+      this.storage.set('users', allUsers);
+
+      const passwords = this.storage.get<Record<string, string>>('passwords') ?? {};
+      passwords[userData.email] = userData.password;
+      this.storage.set('passwords', passwords);
+
+      return true;
+    } finally {
+      this._isLoading.set(false);
     }
   }
 
-  // Connexion
-  login(credentials: LoginRequest): Observable<User> {
-    const user = this.users().find((u) => u.email === credentials.email);
-    const password = this.passwords()[credentials.email];
-
-    if (user && password === credentials.password) {
-      this.currentUser.set(user);
-      this.storage.set('currentUser', user);
-      return of(user).pipe(delay(500));
-    } else {
-      return throwError(() => new Error('Email ou mot de passe incorrect'));
-    }
-  }
-
-  // Inscription
-  register(userData: RegisterRequest): Observable<User> {
-    const existingUser = this.users().find((u) => u.email === userData.email);
-    if (existingUser) {
-      return throwError(() => new Error('Cet email est déjà utilisé'));
-    }
-
-    const newUser: User = {
-      id: this.users().length + 1,
-      name: userData.name,
-      email: userData.email,
-      role: 'user',
-      password: '',
-    };
-
-    // Mettre à jour les signals
-    this.users.update((list) => {
-      const newList = [...list, newUser];
-      this.storage.set('users', newList); // Persist
-      return newList;
-    });
-
-    this.passwords.update((p) => {
-      const newPasswords = { ...p, [userData.email]: userData.password };
-      this.storage.set('passwords', newPasswords); // Persist
-      return newPasswords;
-    });
-
-    // Connecter automatiquement le nouvel utilisateur
-    this.currentUser.set(newUser);
-    this.storage.set('currentUser', newUser);
-
-    return of(newUser).pipe(delay(500));
-  }
-
-  // Déconnexion
+  // Log out current user and clear state
   logout(): void {
-    this.currentUser.set(null);
-    this.storage.remove('currentUser');
+    this._currentUser.set(null);
+    this._error.set(null);
+    console.warn('User logged out');
   }
 
-  getCurrentUser(): User | null {
-    return this.currentUser();
+  // Get all users signal for compatibility - SIGNALS ONLY
+  getAllUsers() {
+    // return this.mockApi.users; // Signal computed
+    const mockUsers = this.mockApi.users();      // Utilisateurs Mock
+    const localUsers = this.storage.get<User[]>('users') ?? []; // Utilisateurs locaux
+
+    const merged = [...mockUsers];
+  localUsers.forEach(u => {
+    if (!merged.find(m => m.email === u.email)) {
+      merged.push(u);
+    }
+  });
+
+  // Retourner un signal pour que le composant reste réactif
+  return signal<User[]>(merged);
   }
 
-  getAllUsers(): Observable<User[]> {
-    return of(this.users()).pipe(delay(300));
-  }
+  // Delete user by ID through Mock API
+  async deleteUser(userId: number): Promise<boolean> {
+    try {
+      this._isLoading.set(true);
+      this._error.set(null);
 
-  deleteUser(userId: number): Observable<void> {
-    this.users.update((list) => {
-      const newList = list.filter((u) => u.id !== userId);
-      this.storage.set('users', newList); // Persist
-      return newList;
-    });
+      const success = await this.mockApi.deleteUser(userId);
+      return success;
 
-    this.passwords.update((p) => {
-      const newPasswords = { ...p };
-      const userToDelete = this.users().find((u) => u.id === userId);
-      if (userToDelete) delete newPasswords[userToDelete.email];
-      this.storage.set('passwords', newPasswords); // Persist
-      return newPasswords;
-    });
-
-    return of(void 0).pipe(delay(300));
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown delete error';
+      this._error.set(errorMessage);
+      throw error;
+    } finally {
+      this._isLoading.set(false);
+    }
   }
 
   getToken(): string | null {
-    const user = this.currentUser();
+    const user = this._currentUser();
     return user ? `mock-token-${user.id}` : null;
   }
 
-  setCurrentUser(user: User): void {
-    this.currentUser.set(user);
-    this.storage.set('currentUser', user);
+  // Get current user value
+  getCurrentUser(): User | null {
+    return this._currentUser();
+  }
+
+  // Simple password validation
+  private validatePassword(password: string): boolean {
+    return password.length >= 6;
+  }
+
+  // Clear error state
+  clearError(): void {
+    this._error.set(null);
+    this.mockApi.clearError();
   }
 }
