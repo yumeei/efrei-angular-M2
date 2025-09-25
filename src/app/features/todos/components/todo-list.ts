@@ -45,7 +45,7 @@ import { HighlightDirective } from '../../../shared/directives/highlight';
     @if (loading()) {
       <div class="text-center py-8">
         <div
-          class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+          class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"
         ></div>
         <p class="mt-2 text-gray-600">Chargement des todos...</p>
       </div>
@@ -83,7 +83,7 @@ import { HighlightDirective } from '../../../shared/directives/highlight';
             <button
               type="submit"
               [disabled]="!todoForm.form.valid || addingTodo()"
-              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+              class="bg-violet-600 text-white px-4 py-2 rounded hover:bg-violet-700 disabled:opacity-50"
             >
               @if (addingTodo()) {
                 <span
@@ -136,7 +136,7 @@ import { HighlightDirective } from '../../../shared/directives/highlight';
 
                 <button
                   (click)="updateStatus(todo.id, 'in-progress')"
-                  class="text-base text-blue-600 hover:text-blue-800"
+                  class="text-base text-violet-600 hover:text-violet-800"
                 >
                   Commencer
                 </button>
@@ -224,7 +224,7 @@ import { HighlightDirective } from '../../../shared/directives/highlight';
               <div class="flex justify-between items-center text-xs text-gray-500">
                 <span>Terminé le {{ todo.updatedAt | date: 'dd/MM/yyyy' }}</span>
 
-                <button (click)="deleteTodo(todo.id)" class="text-red-600 hover:text-red-800">
+                <button (click)="deleteTodo(todo.id)" class="text-base text-red-600 hover:text-red-800">
                   Supprimer
                 </button>
               </div>
