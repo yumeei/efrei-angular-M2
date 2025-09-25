@@ -6,11 +6,13 @@ import { TodoService } from '../services/todo';
 import { PriorityPipe } from '../../../shared/pipes/priority-pipe';
 import { HighlightDirective } from '../../../shared/directives/highlight';
 import { NotificationService } from '../../../shared/service/notifications-service';
+import { CommentsComponent } from './comments';
+import { CommentsService } from '../services/comments';
 
 @Component({
   selector: 'app-todo-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, PriorityPipe, HighlightDirective],
+  imports: [CommonModule, FormsModule, PriorityPipe, HighlightDirective, CommentsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Dashboard des statistiques -->
@@ -128,12 +130,34 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                 >
                   {{ todo.priority | priority }}
                 </span>
+                @if (commentService.getCommentsCount(todo.id)() > 0) {
+                  <div class="flex items-center gap-1 text-gray-500">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                    <span class="text-xs">{{ commentService.getCommentsCount(todo.id)() }}</span>
+                  </div>
+                }
               </div>
               @if (todo.description) {
                 <p class="text-sm text-gray-600 mb-3">{{ todo.description }}</p>
               }
               <div class="flex justify-between items-center text-xs text-gray-500">
                 <span>Créé le {{ todo.createdAt | date: 'dd/MM/yyyy' }}</span>
+
+                <div class="flex items-center gap-2">
+                <button
+                  (click)="toggleComments(todo.id)"
+                  class="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 bg-gray-100 px-2 py-1 rounded"
+                  title="{{ showComments().has(todo.id) ? 'Masquer' : 'Afficher' }} les commentaires"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                  </svg>
+                  {{ showComments().has(todo.id) ? 'Masquer' : 'Commentaires' }}
+                </button>
 
                 <button
                   (click)="updateStatus(todo.id, 'in-progress')"
@@ -142,10 +166,16 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                   Commencer
                 </button>
               </div>
+              </div>
+              @if (showComments().has(todo.id)) {
+                <div class="mt-3 pt-3 border-t border-gray-200">
+                  <app-comments [todoId]="todo.id"></app-comments>
+                </div>
+              }
             </div>
-          }
+}
+          </div>
         </div>
-      </div>
 
       <!-- En cours -->
       <div class="bg-gray-50 rounded-lg p-4">
@@ -173,12 +203,32 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                 >
                   {{ todo.priority | priority }}
                 </span>
+                @if (commentService.getCommentsCount(todo.id)() > 0) {
+                  <div class="flex items-center gap-1 text-gray-500">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                    <span class="text-xs">{{ commentService.getCommentsCount(todo.id)() }}</span>
+                  </div>
+                }
               </div>
               @if (todo.description) {
                 <p class="text-sm text-gray-600 mb-3">{{ todo.description }}</p>
               }
               <div class="flex justify-between items-center text-xs text-gray-500">
                 <span>Mis à jour le {{ todo.updatedAt | date: 'dd/MM/yyyy' }}</span>
+                <div class="flex items-center gap-2">
+                <button
+                  (click)="toggleComments(todo.id)"
+                  class="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 bg-gray-100 px-2 py-1 rounded"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                  </svg>
+                  {{ showComments().has(todo.id) ? 'Masquer' : 'Commentaires' }}
+                </button>
 
                 <button
                   (click)="updateStatus(todo.id, 'done')"
@@ -187,6 +237,13 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                   Terminer
                 </button>
               </div>
+            </div>
+
+            @if (showComments().has(todo.id)) {
+              <div class="mt-3 pt-3 border-t border-gray-200">
+                <app-comments [todoId]="todo.id"></app-comments>
+              </div>
+            }
             </div>
           }
         </div>
@@ -222,18 +279,37 @@ import { NotificationService } from '../../../shared/service/notifications-servi
               @if (todo.description) {
                 <p class="text-sm text-gray-600 mb-3 line-through">{{ todo.description }}</p>
               }
-              <div class="flex justify-between items-center text-xs text-gray-500">
-                <span>Terminé le {{ todo.updatedAt | date: 'dd/MM/yyyy' }}</span>
+                <div class="flex justify-between items-center text-xs text-gray-500">
+                  <span>Terminé le {{ todo.updatedAt | date: 'dd/MM/yyyy' }}</span>
 
-                <button (click)="deleteTodo(todo.id)" class="text-base text-red-600 hover:text-red-800">
-                  Supprimer
-                </button>
+                  <div class="flex items-center gap-2">
+                  <button
+                    (click)="toggleComments(todo.id)"
+                    class="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 bg-gray-100 px-2 py-1 rounded"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                    {{ showComments().has(todo.id) ? 'Masquer' : 'Commentaires' }}
+                  </button>
+
+                  <button (click)="deleteTodo(todo.id)" class="text-red-600 hover:text-red-800">
+                    Supprimer
+                  </button>
+                </div>
               </div>
+
+              @if (showComments().has(todo.id)) {
+              <div class="mt-3 pt-3 border-t border-gray-200">
+                <app-comments [todoId]="todo.id"></app-comments>
+              </div>
+            }
             </div>
           }
         </div>
       </div>
-    </div>
+
   `,
   styles: [],
 })
@@ -250,6 +326,8 @@ export class TodoListComponent implements OnInit {
 
   todoService = inject(TodoService);
   private notificationService = inject(NotificationService);
+  protected readonly commentService = inject(CommentsService);
+  protected readonly showComments = signal(new Set<number>());
 
 
   async ngOnInit() {
@@ -290,6 +368,18 @@ export class TodoListComponent implements OnInit {
         this.addingTodo.set(false);
       }
     }
+  }
+
+  toggleComments(todoId: number): void {
+    this.showComments.update(set => {
+      const newSet = new Set(set);
+      if (newSet.has(todoId)) {
+        newSet.delete(todoId);
+      } else {
+        newSet.add(todoId);
+      }
+      return newSet;
+    });
   }
 
   async updateStatus(id: number, status: Todo['status']) {

@@ -3,6 +3,7 @@ import { Todo } from '../models/todo';
 import { StorageService } from '../../storage/services/localStorage';
 import { MockApiService } from '../../../infrastructure/mock-data/mock-api.service';
 import { AuthService } from '../../auth/services/auth';
+import { NotificationService } from '../../../shared/service/notifications-service';
 
 @Injectable({
   providedIn: 'root',
@@ -10,8 +11,8 @@ import { AuthService } from '../../auth/services/auth';
 export class TodoService {
   private storage = inject(StorageService);
   private mockApi = inject(MockApiService); // Inject Mock API service
-
   private auth = inject(AuthService);
+  private notificationService = inject(NotificationService);
 
   // Writable signals for internal state management
   private readonly _todos = signal<Todo[]>([]);
@@ -75,7 +76,7 @@ export class TodoService {
       this._todos.set(todos);
 
       // Backup to localStorage
-      this.storage.set('todos', todos);
+      // this.saveTodos(todos);
 
     } catch (error: unknown) {
       console.error('Error loading todos:', error);
@@ -124,10 +125,11 @@ export class TodoService {
       });
 
       // Todos are automatically updated via effect
+      this.notificationService.success(`Tâche "${newTodo.title}" créée avec succès`);
       return newTodo;
 
-    } catch(error: unknown) {
-      this._error.set(error instanceof Error ? error.message : 'An unknown error occurred');
+    } catch (error) {
+      this.notificationService.error('Erreur lors de la création de la tâche');
       throw error;
     } finally {
       this._isLoading.set(false);
@@ -144,8 +146,8 @@ export class TodoService {
 
       return updatedTodo;
 
-    } catch (error: unknown) {
-      this._error.set(error instanceof Error ? error.message : 'An unknown error occurred');
+    } catch (error) {
+      this.notificationService.error('Erreur lors de la mise à jour');
       throw error;
     } finally {
       this._isLoading.set(false);
@@ -159,11 +161,11 @@ export class TodoService {
       this._error.set(null);
 
       const success = await this.mockApi.deleteTodo(id);
-
+      this.notificationService.success('Tâche supprimée');
       return success;
 
-    } catch (error: unknown) {
-      this._error.set(error instanceof Error ? error.message : 'An unknown error occurred');
+    } catch (error) {
+      this.notificationService.error('Erreur lors de la suppression');
       throw error;
     } finally {
       this._isLoading.set(false);

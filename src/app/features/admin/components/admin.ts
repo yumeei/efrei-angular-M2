@@ -7,11 +7,15 @@ import { User } from '../../auth/models/user';
 import { Todo } from '../../todos/models/todo';
 import { StorageService } from '../../storage/services/localStorage';
 import { NotificationService } from '../../../shared/service/notifications-service';
+import { TableColumnsService } from '../../../shared/service/table-columns';
+import { TableColumnsManagerComponent } from '../../../shared/components/tablecolumnsmanager/table-columns-manager';
+import { CommentsService } from '../../todos/services/comments';
+
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TableColumnsManagerComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="mb-8">
@@ -46,8 +50,9 @@ import { NotificationService } from '../../../shared/service/notifications-servi
       <!-- Contenu des onglets -->
       @if (activeTab() === 'users') {
         <div class="bg-white shadow rounded-lg">
-          <div class="px-6 py-4 border-b border-gray-200">
+          <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 class="text-xl font-semibold text-gray-900">Gestion des Utilisateurs</h2>
+              <app-table-columns-manager tableKey="users"></app-table-columns-manager>
           </div>
           <div class="p-6">
             @if (users().length > 0) {
@@ -55,32 +60,23 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                 <table class="min-w-full divide-y divide-gray-200">
                   <thead class="bg-gray-50">
                     <tr>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Utilisateur
-                      </th>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Rôle
-                      </th>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Actions
-                      </th>
+                      @for (column of tableColumnsService.getVisibleColumns('users')(); track column.key) {
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {{ column.label }}
+                        </th>
+                      }
                     </tr>
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
                     @for (user of users(); track user.id) {
                       <tr>
+                        @for (column of tableColumnsService.getVisibleColumns('users')(); track column.key) {
                         <td class="px-6 py-4 whitespace-nowrap">
+                          @switch (column.key) {
+                            @case ('name') {
                           <div class="flex items-center">
                             <div class="flex-shrink-0 h-10 w-10">
-                              <div
-                                class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center"
-                              >
+                              <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                                 <span class="text-sm font-medium text-gray-700">
                                   {{ user.name.charAt(0).toUpperCase() }}
                                 </span>
@@ -91,19 +87,23 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                               <div class="text-sm text-gray-500">{{ user.email }}</div>
                             </div>
                           </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                          <span
-                            [class.bg-red-100]="user.role === 'admin'"
-                            [class.text-red-800]="user.role === 'admin'"
-                            [class.bg-green-100]="user.role === 'user'"
-                            [class.text-green-800]="user.role === 'user'"
-                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                          >
-                            {{ user.role | titlecase }}
-                          </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          }
+                          @case ('email') {
+                            <div class="text-sm text-gray-900">{{ user.email }}</div>
+                          }
+                          @case ('role') {
+                            <span
+                              [class.bg-red-100]="user.role === 'admin'"
+                              [class.text-red-800]="user.role === 'admin'"
+                              [class.bg-green-100]="user.role === 'user'"
+                              [class.text-green-800]="user.role === 'user'"
+                              class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                            >
+                              {{ user.role | titlecase }}
+                            </span>
+                          }
+                          @case ('actions') {
+                            <div class="text-sm font-medium">
                           @if (user.role !== 'admin') {
                             <button
                               (click)="deleteUser(user.id)"
@@ -113,8 +113,12 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                             </button>
                           } @else {
                             <span class="text-gray-400">Admin protégé</span>
+                            }
+                              </div>
+                            }
                           }
                         </td>
+                      }
                       </tr>
                     }
                   </tbody>
@@ -131,6 +135,7 @@ import { NotificationService } from '../../../shared/service/notifications-servi
         <div class="bg-white shadow rounded-lg">
           <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-xl font-semibold text-gray-900">Gestion des Tickets</h2>
+              <app-table-columns-manager tableKey="todos"></app-table-columns-manager>
           </div>
           <div class="p-6">
             @if (todos().length > 0) {
@@ -138,43 +143,25 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                 <table class="min-w-full divide-y divide-gray-200">
                   <thead class="bg-gray-50">
                     <tr>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Ticket
-                      </th>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Statut
-                      </th>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Priorité
-                      </th>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Assigné à
-                      </th>
-                      <th
-                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Actions
-                      </th>
+                      @for (column of tableColumnsService.getVisibleColumns('todos')(); track column.key) {
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {{ column.label }}
+                        </th>
+                      }
                     </tr>
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
                     @for (todo of todos(); track todo.id) {
                       <tr>
+                        @for (column of tableColumnsService.getVisibleColumns('todos')(); track column.key) {
                         <td class="px-6 py-4 whitespace-nowrap">
-                          <div class="text-sm font-medium text-gray-900">{{ todo.title }}</div>
-                          @if (todo.description) {
-                            <div class="text-sm text-gray-500">{{ todo.description }}</div>
-                          }
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                          @switch (column.key) {
+                            @case ('title') {
+                              <div>
+                                <div class="text-sm font-medium text-gray-900">{{ todo.title }}</div>
+                              </div>
+                            }
+                            @case ('status') {
                           <span
                             [class.bg-yellow-100]="todo.status === 'todo'"
                             [class.text-yellow-800]="todo.status === 'todo'"
@@ -186,46 +173,69 @@ import { NotificationService } from '../../../shared/service/notifications-servi
                           >
                             {{ todo.status | titlecase }}
                           </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                          <span
-                            [class.bg-red-100]="todo.priority === 'high'"
-                            [class.text-red-800]="todo.priority === 'high'"
-                            [class.bg-yellow-100]="todo.priority === 'medium'"
-                            [class.text-yellow-800]="todo.priority === 'medium'"
-                            [class.bg-green-100]="todo.priority === 'low'"
-                            [class.text-green-800]="todo.priority === 'low'"
-                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                          >
-                            {{ todo.priority | titlecase }}
-                          </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {{ todo.assignedTo || 'Non assigné' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            (click)="deleteTodo(todo.id)"
-                            class="text-red-600 hover:text-red-900 mr-3"
-                          >
-                            Supprimer
-                          </button>
+                          }
+                          @case ('priority') {
+                            <span
+                              [class.bg-red-100]="todo.priority === 'high'"
+                              [class.text-red-800]="todo.priority === 'high'"
+                              [class.bg-yellow-100]="todo.priority === 'medium'"
+                              [class.text-yellow-800]="todo.priority === 'medium'"
+                              [class.bg-green-100]="todo.priority === 'low'"
+                              [class.text-green-800]="todo.priority === 'low'"
+                              class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                            >
+                              {{ todo.priority | titlecase }}
+                            </span>
+                          }
+                          @case ('assignedTo') {
+                            <span class="text-sm text-gray-900">{{ todo.assignedTo || 'Non assigné' }}</span>
+                          }
+                          @case ('description') {
+                            <div class="text-sm text-gray-500 max-w-xs truncate">
+                              {{ todo.description || 'Aucune description' }}
+                            </div>
+                          }
 
-                          <select #userSelect class="rounded-lg border-gray-300 mr-3 text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                            <option *ngFor="let user of users(); trackBy: trackByUserId" [value]="user.id">
-                              {{ user.name }}
-                            </option>
-                          </select>
+                          @case ('comments') {
+                            <div class="flex items-center gap-2">
+                              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                              </svg>
+                              <span class="text-sm text-gray-900">{{ commentsService.getCommentsCount(todo.id)() }}</span>
+                              @if (commentsService.getCommentsCount(todo.id)() === 0) {
+                                <span class="text-xs text-gray-400">Aucun</span>
+                              }
+                            </div>
+                          }
+                          @case ('actions') {
+                            <div class="text-sm font-medium">
+                            <button
+                              (click)="deleteTodo(todo.id)"
+                              class="text-red-600 hover:text-red-900 mr-3"
+                            >
+                              Supprimer
+                            </button>
 
-                          <button
-                            (click)="assignTodo(todo, +userSelect.value)"
-                            class="px-3 py-1 bg-violet-600 text-white text-sm font-medium rounded-lg shadow hover:bg-violet-700 transition"
-                          >
-                            Assigner
-                          </button>
-                        </td>
-                      </tr>
+                            <select #userSelect class="rounded-lg border-gray-300 mr-3 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                              <option *ngFor="let user of users(); trackBy: trackByUserId" [value]="user.id">
+                                {{ user.name }}
+                              </option>
+                            </select>
+
+                            <button
+                              (click)="assignTodo(todo, +userSelect.value)"
+                              class="px-3 py-1 bg-violet-600 text-white text-sm font-medium rounded-lg shadow hover:bg-violet-700 transition"
+                            >
+                              Assigner
+                            </button>
+                          </div>
+                        }
+                      }
+                    </td>
                     }
+                    </tr>
+                  }
                   </tbody>
                 </table>
               </div>
@@ -244,6 +254,8 @@ export class AdminComponent implements OnInit {
   private todoService = inject(TodoService);
   private router = inject(Router);
   private storage = inject(StorageService);
+  protected tableColumnsService = inject(TableColumnsService);
+  protected commentsService = inject(CommentsService);
   private notificationService = inject(NotificationService);
 
   // Writable signals for managing component state
