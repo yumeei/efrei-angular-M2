@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ErrorService } from '../../service/error';
+import { NotificationService } from '../../service/notifications-service';
 
 @Component({
   selector: 'app-notifications',
@@ -8,13 +8,14 @@ import { ErrorService } from '../../service/error';
   imports: [CommonModule],
   template: `
     <div class="fixed top-4 right-4 z-50 space-y-2">
-      @for (notification of errorService.errors$(); track notification.id) {
+      @for (notification of notificationService.notifications(); track notification.id) {
         <div
-          class="w-fit max-w-md p-4 rounded-lg shadow-lg text-white flex items-center justify-between"
+          class="w-fit max-w-md p-4 rounded-lg shadow-lg text-white flex items-center justify-between animate-slide-in"
           [class]="{
             'bg-red-500': notification.type === 'error',
             'bg-yellow-500': notification.type === 'warning',
             'bg-blue-500': notification.type === 'info',
+            'bg-green-500': notification.type === 'success'
           }"
         >
           <div class="flex items-center space-x-2">
@@ -46,11 +47,39 @@ import { ErrorService } from '../../service/error';
                 ></path>
               </svg>
             }
-            <span>{{ notification.message }}</span>
+            @if (notification.type === 'success') {
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fill-rule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clip-rule="evenodd"
+                ></path>
+              </svg>
+            }
+            <div class="flex flex-col">
+              <span>{{ notification.message }}</span>
+              <small class="text-xs opacity-80">{{ formatTime(notification.timestamp) }}</small>
+            </div>
           </div>
+
+          <!-- Actions optionnelles -->
+          @if (notification.actions && notification.actions.length > 0) {
+            <div class="flex space-x-2 ml-4">
+              @for (action of notification.actions; track action.label) {
+                <button
+                  (click)="executeAction(action)"
+                  class="px-2 py-1 text-xs bg-white bg-opacity-20 rounded hover:bg-opacity-30 transition-all"
+                >
+                  {{ action.label }}
+                </button>
+              }
+            </div>
+          }
+
           <button
-            (click)="errorService.removeError(notification.id)"
-            class="ml-4 text-white hover:text-gray-200"
+            (click)="close(notification.id)"
+            class="ml-4 text-white hover:text-gray-200 transition-colors"
+            aria-label="Fermer la notification"
           >
             ×
           </button>
@@ -58,7 +87,44 @@ import { ErrorService } from '../../service/error';
       }
     </div>
   `,
+  styles: [`
+    .animate-slide-in {
+      animation: slideInFromRight 0.3s ease-out;
+    }
+
+    @keyframes slideInFromRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .animate-slide-in:hover {
+      transform: translateX(-4px);
+      transition: transform 0.2s ease;
+    }
+  `]
 })
 export class NotificationsComponent {
-  errorService = inject(ErrorService);
+  protected readonly notificationService = inject(NotificationService);
+
+  close(id: string): void {
+    this.notificationService.remove(id);
+  }
+
+  executeAction(action: { label: string; action: () => void }): void {
+    action.action();
+  }
+
+  formatTime(timestamp: Date): string {
+    return new Intl.DateTimeFormat('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).format(timestamp);
+  }
 }

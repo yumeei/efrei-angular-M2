@@ -5,6 +5,7 @@ import { Todo } from '../models/todo';
 import { TodoService } from '../services/todo';
 import { PriorityPipe } from '../../../shared/pipes/priority-pipe';
 import { HighlightDirective } from '../../../shared/directives/highlight';
+import { NotificationService } from '../../../shared/service/notifications-service';
 
 @Component({
   selector: 'app-todo-list',
@@ -248,6 +249,8 @@ export class TodoListComponent implements OnInit {
   };
 
   todoService = inject(TodoService);
+  private notificationService = inject(NotificationService);
+
 
   async ngOnInit() {
     await this.loadTodos();
@@ -302,8 +305,10 @@ export class TodoListComponent implements OnInit {
     try {
       await this.todoService.deleteTodo(id);
       await this.loadTodos();
+      this.notificationService.success('Tâche supprimée avec succès');
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
+      this.notificationService.error('Erreur lors de la suppression de la tâche');
     }
   }
 

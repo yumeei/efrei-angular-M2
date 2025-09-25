@@ -6,6 +6,7 @@ import { TodoService } from '../../todos/services/todo';
 import { User } from '../../auth/models/user';
 import { Todo } from '../../todos/models/todo';
 import { StorageService } from '../../storage/services/localStorage';
+import { NotificationService } from '../../../shared/service/notifications-service';
 
 @Component({
   selector: 'app-admin',
@@ -243,6 +244,7 @@ export class AdminComponent implements OnInit {
   private todoService = inject(TodoService);
   private router = inject(Router);
   private storage = inject(StorageService);
+  private notificationService = inject(NotificationService);
 
   // Writable signals for managing component state
   activeTab = signal<'users' | 'tickets'>('users');
@@ -433,11 +435,14 @@ export class AdminComponent implements OnInit {
     if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
       try {
         this.actionCount.update(count => count + 1);
+        const userToDelete = this.users().find(u => u.id === userId);
         await this.authService.deleteUser(userId);
         const localUsers = this.storage.get<User[]>('users') ?? [];
         const updatedLocalUsers = localUsers.filter(u => u.id !== userId);
         this.storage.set('users', updatedLocalUsers);
         await this.loadUsers();
+        const userName = userToDelete?.name || 'Utilisateur';
+        this.notificationService.success(`${userName} supprimé avec succès`);
         console.warn('User deleted:', userId);
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);
@@ -449,10 +454,14 @@ export class AdminComponent implements OnInit {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce ticket ?')) {
       try {
         this.actionCount.update(count => count + 1);
+        const todoToDelete = this.todos().find(t => t.id === todoId);
         await this.todoService.deleteTodo(todoId);
         await this.loadTodos();
+        const todoTitle = todoToDelete?.title || 'Ticket';
+        this.notificationService.success(`Ticket "${todoTitle}" supprimé`);
         console.warn('Todo deleted:', todoId);
       } catch (error) {
+        this.notificationService.error('Erreur lors de la suppression du ticket');
         console.error('Erreur lors de la suppression:', error);
       }
     }

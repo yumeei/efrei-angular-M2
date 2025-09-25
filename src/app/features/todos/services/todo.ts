@@ -2,6 +2,7 @@ import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { Todo } from '../models/todo';
 import { StorageService } from '../../storage/services/localStorage';
 import { MockApiService } from '../../../infrastructure/mock-data/mock-api.service';
+import { AuthService } from '../../auth/services/auth';
 
 @Injectable({
   providedIn: 'root',
@@ -9,6 +10,8 @@ import { MockApiService } from '../../../infrastructure/mock-data/mock-api.servi
 export class TodoService {
   private storage = inject(StorageService);
   private mockApi = inject(MockApiService); // Inject Mock API service
+
+  private auth = inject(AuthService);
 
   // Writable signals for internal state management
   private readonly _todos = signal<Todo[]>([]);
@@ -107,11 +110,18 @@ export class TodoService {
 
   // Create a new todo via Mock API
   async createTodo(todoData: Partial<Todo>): Promise<Todo> {
+    const currentUser = this.auth.getCurrentUser();
+    if (!currentUser) {
+      throw new Error('Aucun utilisateur connecté');
+    }
     try {
       this._isLoading.set(true);
       this._error.set(null);
 
-      const newTodo = await this.mockApi.createTodo(todoData);
+      const newTodo = await this.mockApi.createTodo({
+        ...todoData,
+        createdBy: currentUser.id,
+      });
 
       // Todos are automatically updated via effect
       return newTodo;
