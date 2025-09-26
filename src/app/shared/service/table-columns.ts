@@ -56,12 +56,12 @@ export class TableColumnsService {
   toggleColumn(tableKey: string, columnKey: string): void {
     this._columnsConfig.update(config => {
       const tableConfig = config[tableKey] || [...(this.defaultConfigs[tableKey] || [])];
-      const updatedConfig = tableConfig.map(col => 
-        col.key === columnKey && !col.required 
+      const updatedConfig = tableConfig.map(col =>
+        col.key === columnKey && !col.required
           ? { ...col, visible: !col.visible }
           : col
       );
-      
+
       const newConfig = { ...config, [tableKey]: updatedConfig };
       this.saveConfiguration(newConfig);
       return newConfig;
@@ -70,9 +70,9 @@ export class TableColumnsService {
 
   resetColumns(tableKey: string): void {
     this._columnsConfig.update(config => {
-      const newConfig = { 
-        ...config, 
-        [tableKey]: [...(this.defaultConfigs[tableKey] || [])] 
+      const newConfig = {
+        ...config,
+        [tableKey]: [...(this.defaultConfigs[tableKey] || [])]
       };
       this.saveConfiguration(newConfig);
       return newConfig;
@@ -85,25 +85,26 @@ export class TableColumnsService {
       if (saved) {
         const parsed = JSON.parse(saved);
         const mergedConfig: Record<string, TableColumn[]> = {};
-        
+
         Object.keys(this.defaultConfigs).forEach(tableKey => {
           const defaultCols = this.defaultConfigs[tableKey];
           const savedCols = parsed[tableKey] || [];
-          
+
           const savedColsMap = new Map(savedCols.map((col: TableColumn) => [col.key, col]));
-          
+
           mergedConfig[tableKey] = defaultCols.map(defaultCol => {
             const savedCol = savedColsMap.get(defaultCol.key);
             return savedCol ? { ...defaultCol, ...savedCol } : defaultCol;
           });
         });
-        
+
         this._columnsConfig.set(mergedConfig);
       } else {
         this._columnsConfig.set({ ...this.defaultConfigs });
       }
     } catch (error) {
       this._columnsConfig.set({ ...this.defaultConfigs });
+      console.error(error);
     }
   }
 

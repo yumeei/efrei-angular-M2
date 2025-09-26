@@ -184,7 +184,7 @@ export class CommentsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    // Load comments for this todo if needed
+    console.warn();
   }
 
   async addComment(): Promise<void> {

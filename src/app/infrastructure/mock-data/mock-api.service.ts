@@ -7,6 +7,8 @@ import { User } from '../../features/auth/models/user';
 })
 export class MockApiService {
     // Writable signals for API state management
+    private readonly TODOS_KEY = 'todos';
+    private readonly USERS_KEY = 'users';
     private readonly requestCount = signal(0);
     private readonly shouldFail = signal(false);
     private readonly isLoading = signal(false);
@@ -96,6 +98,7 @@ export class MockApiService {
     );
 
     constructor() {
+        this.loadInitialData();
         this.setupEffects();
     }
 
@@ -126,6 +129,49 @@ export class MockApiService {
         }, { allowSignalWrites: false });
     }
 
+    private loadInitialData() {
+        const storedTodos = localStorage.getItem(this.TODOS_KEY);
+        const storedUsers = localStorage.getItem(this.USERS_KEY);
+
+        if (storedTodos) {
+            this.mockTodos.set(JSON.parse(storedTodos));
+        } else {
+            this.mockTodos.set([
+                {
+                    id: 1,
+                    title: 'Implémenter HTTP intercepteur',
+                    status: 'in-progress',
+                    priority: 'high',
+                    assignedTo: 1,
+                    description: '',
+                    createdBy: 0,
+                    createdAt: new Date('2024-01-13'),
+                    updatedAt: new Date('2024-01-14'),
+                },
+                {
+                    id: 2,
+                    title: 'Créer service gestion erreurs',
+                    status: 'done',
+                    priority: 'medium',
+                    assignedTo: 2,
+                    description: '',
+                    createdBy: 0,
+                    createdAt: new Date('2024-01-13'),
+                    updatedAt: new Date('2024-01-14'),
+                },
+            ]);
+        }
+
+        if (storedUsers) {
+            this.mockUsers.set(JSON.parse(storedUsers));
+        } else {
+            this.mockUsers.set([
+                { id: 1, name: 'Admin User', email: 'admin@example.com', role: 'admin', password: 'admin123' },
+                { id: 2, name: 'Regular User', email: 'user@example.com', role: 'user', password: 'user123' },
+            ]);
+        }
+    }
+
     // Asynchronous API methods with signal-based state management
 
     async getTodos(): Promise<Todo[]> {
@@ -153,16 +199,14 @@ export class MockApiService {
                 title: todoData.title || '',
                 status: todoData.status || 'todo',
                 priority: todoData.priority || 'medium',
-                assignedTo: todoData.assignedTo,
-                description: '',
-                createdBy: 0,
-                createdAt: new Date('2024-01-13'),
-                updatedAt: new Date('2024-01-14'),
+                assignedTo: todoData.assignedTo ?? undefined,
+                description: todoData.description ?? '',
+                createdBy: todoData.createdBy ?? 0,
+                createdAt: new Date(),
+                updatedAt: new Date(),
             };
 
-            // Update todos signal with new todo
             this.mockTodos.update(todos => [...todos, newTodo]);
-
             return newTodo;
         }, 'POST /todos', 2500);
     }
