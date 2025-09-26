@@ -2,21 +2,25 @@ import { Pipe, PipeTransform } from '@angular/core';
 
 @Pipe({
   name: 'duration',
-  standalone: true,
+  standalone: true
 })
 export class DurationPipe implements PipeTransform {
-  transform(minutes: number): string {
-    if (minutes < 60) {
-      return `${minutes} min`;
+  transform(value: number | null | undefined): string {
+    // Handle null, undefined, and 0
+    // eslint-disable-next-line eqeqeq
+    if (value == null || value === 0) {
+      return '0s';
     }
 
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    const seconds = value % 60;
 
-    if (remainingMinutes === 0) {
-      return `${hours}h`;
-    }
+    let result = '';
+    if (hours > 0) result += `${hours}h`;
+    if (minutes > 0) result += `${result ? ' ' : ''}${minutes}m`;
+    if (seconds > 0) result += `${result ? ' ' : ''}${seconds}s`;
 
-    return `${hours}h ${remainingMinutes}min`;
+    return result || '0s';
   }
 }
