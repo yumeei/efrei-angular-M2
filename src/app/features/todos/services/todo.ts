@@ -76,7 +76,7 @@ export class TodoService {
       this._todos.set(todos);
 
       // Backup to localStorage
-      // this.saveTodos(todos);
+      this.saveTodos(todos);
 
     } catch (error: unknown) {
       console.error('Error loading todos:', error);
@@ -183,6 +183,47 @@ export class TodoService {
   public readonly inProgressTodos = computed(() =>
     this._todos().filter(todo => todo.status === 'in-progress')
   );
+
+  public readonly todosWithDeadlines = computed(() =>
+    this._todos().filter(todo => todo.deadline)
+  );
+
+  public readonly overdueTodos = computed(() =>
+    this._todos().filter(todo =>
+      todo.deadline &&
+      todo.status !== 'done' &&
+      new Date() > new Date(todo.deadline)
+    )
+  );
+
+  private saveTodos(todos: Todo[]): void {
+    this.storage.set('todos', todos);
+  }
+
+  async updateDeadline(todoId: number, deadline: Date | null): Promise<Todo | null> {
+    try {
+      this._isLoading.set(true);
+      this._error.set(null);
+
+      // // ✅ OPTION 1: Utiliser Mock API (recommandé)
+      const updatedTodo = await this.mockApi.updateTodo(todoId, { deadline: deadline ?? undefined });
+
+      if (updatedTodo) {
+        this.notificationService.success('Échéance mise à jour avec succès');
+        return updatedTodo;
+      }
+
+      return null;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la mise à jour de l\'échéance';
+      this._error.set(errorMessage);
+      this.notificationService.error(errorMessage);
+      return null;
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
 
   // Direct access to Mock API signals
   getTodosSignal() {

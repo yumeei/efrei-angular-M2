@@ -8,11 +8,13 @@ import { HighlightDirective } from '../../../shared/directives/highlight';
 import { NotificationService } from '../../../shared/service/notifications-service';
 import { CommentsComponent } from './comments';
 import { CommentsService } from '../services/comments';
+import { DeadlineService } from '../services/deadlines';
+import { DeadlinePickerComponent } from './deadline-picker';
 
 @Component({
   selector: 'app-todo-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, PriorityPipe, HighlightDirective, CommentsComponent],
+  imports: [CommonModule, FormsModule, PriorityPipe, HighlightDirective, CommentsComponent, DeadlinePickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Dashboard des statistiques -->
@@ -40,6 +42,24 @@ import { CommentsService } from '../services/comments';
           <p class="text-2xl font-bold text-purple-600">
             {{ todoService.todoStats().completionRate | number: '1.0-0' }}%
           </p>
+        </div>
+      </div>
+    </div>
+    <!-- Dashboard des deadlines -->
+    <div class="mb-8">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">Échéances en cours</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
+          <h3 class="text-sm font-medium text-red-700">🚨 En retard</h3>
+          <p class="text-2xl font-bold text-red-600">{{ deadlineService.getOverdueCount() }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
+          <h3 class="text-sm font-medium text-orange-700">⚡ Urgents</h3>
+          <p class="text-2xl font-bold text-orange-600">{{ deadlineService.getUrgentCount() }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+          <h3 class="text-sm font-medium text-blue-700">📋 Avec échéance</h3>
+          <p class="text-2xl font-bold text-blue-600">{{ todoService.todosWithDeadlines().length }}</p>
         </div>
       </div>
     </div>
@@ -113,23 +133,30 @@ import { CommentsService } from '../services/comments';
         <div class="space-y-3">
           @for (todo of todoService.pendingTodos(); track trackByTodoId($index, todo)) {
             <div
+              [class]="getCardClasses(todo)"
               class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-gray-400"
               [appHighlight]="todo.priority === 'high' ? 'rgba(239, 68, 68, 0.1)' : 'transparent'"
               [appHighlightDelay]="todo.priority === 'high' ? 500 : 0"
             >
               <div class="flex justify-between items-start mb-2">
                 <h4 class="font-medium text-gray-900">{{ todo.title }}</h4>
-                <span
-                  class="px-2 py-1 text-xs font-semibold rounded-full"
-                  [class.bg-red-100]="todo.priority === 'high'"
-                  [class.text-red-800]="todo.priority === 'high'"
-                  [class.bg-yellow-100]="todo.priority === 'medium'"
-                  [class.text-yellow-800]="todo.priority === 'medium'"
-                  [class.bg-green-100]="todo.priority === 'low'"
-                  [class.text-green-800]="todo.priority === 'low'"
-                >
-                  {{ todo.priority | priority }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span
+                    class="px-2 py-1 text-xs font-semibold rounded-full"
+                    [class.bg-red-100]="todo.priority === 'high'"
+                    [class.text-red-800]="todo.priority === 'high'"
+                    [class.bg-yellow-100]="todo.priority === 'medium'"
+                    [class.text-yellow-800]="todo.priority === 'medium'"
+                    [class.bg-green-100]="todo.priority === 'low'"
+                    [class.text-green-800]="todo.priority === 'low'"
+                  >
+                    {{ todo.priority | priority }}
+                  </span>
+                <!--  Deadline Picker -->
+                <app-deadline-picker
+                  [deadline]="todo.deadline || null"
+                  (deadlineChange)="updateDeadline(todo.id, $event)"
+                ></app-deadline-picker>
                 @if (commentService.getCommentsCount(todo.id)() > 0) {
                   <div class="flex items-center gap-1 text-gray-500">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,6 +167,17 @@ import { CommentsService } from '../services/comments';
                   </div>
                 }
               </div>
+            </div>
+
+            <!-- Affichage de l'échéance -->
+            @if (todo.deadline) {
+              <div class="mb-3">
+                <div [class]="deadlineService.getDeadlineText(todo).color" class="flex items-center gap-1 text-xs">
+                  <span>{{ deadlineService.getDeadlineText(todo).text }}</span>
+                  <span class="text-gray-400">- {{ todo.deadline | date: 'dd/MM/yyyy HH:mm' }}</span>
+                </div>
+              </div>
+            }
               @if (todo.description) {
                 <p class="text-sm text-gray-600 mb-3">{{ todo.description }}</p>
               }
@@ -186,33 +224,52 @@ import { CommentsService } from '../services/comments';
         <div class="space-y-3">
           @for (todo of todoService.inProgressTodos(); track trackByTodoId($index, todo)) {
             <div
+              [class]="getCardClasses(todo)"
               class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-400"
               [appHighlight]="todo.priority === 'high' ? 'rgba(239, 68, 68, 0.1)' : 'transparent'"
               [appHighlightDelay]="todo.priority === 'high' ? 500 : 0"
             >
               <div class="flex justify-between items-start mb-2">
                 <h4 class="font-medium text-gray-900">{{ todo.title }}</h4>
-                <span
-                  class="px-2 py-1 text-xs font-semibold rounded-full"
-                  [class.bg-red-100]="todo.priority === 'high'"
-                  [class.text-red-800]="todo.priority === 'high'"
-                  [class.bg-yellow-100]="todo.priority === 'medium'"
-                  [class.text-yellow-800]="todo.priority === 'medium'"
-                  [class.bg-green-100]="todo.priority === 'low'"
-                  [class.text-green-800]="todo.priority === 'low'"
-                >
-                  {{ todo.priority | priority }}
-                </span>
-                @if (commentService.getCommentsCount(todo.id)() > 0) {
-                  <div class="flex items-center gap-1 text-gray-500">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                    </svg>
-                    <span class="text-xs">{{ commentService.getCommentsCount(todo.id)() }}</span>
-                  </div>
-                }
+                <div class="flex items-center gap-2">
+                  <span
+                    class="px-2 py-1 text-xs font-semibold rounded-full"
+                    [class.bg-red-100]="todo.priority === 'high'"
+                    [class.text-red-800]="todo.priority === 'high'"
+                    [class.bg-yellow-100]="todo.priority === 'medium'"
+                    [class.text-yellow-800]="todo.priority === 'medium'"
+                    [class.bg-green-100]="todo.priority === 'low'"
+                    [class.text-green-800]="todo.priority === 'low'"
+                  >
+                    {{ todo.priority | priority }}
+                  </span>
+                  <!-- Deadline Picker -->
+                  <app-deadline-picker
+                    [deadline]="todo.deadline || null"
+                    (deadlineChange)="updateDeadline(todo.id, $event)"
+                  ></app-deadline-picker>
+                  @if (commentService.getCommentsCount(todo.id)() > 0) {
+                    <div class="flex items-center gap-1 text-gray-500">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                      </svg>
+                      <span class="text-xs">{{ commentService.getCommentsCount(todo.id)() }}</span>
+                    </div>
+                  }
+                </div>
               </div>
+
+              <!-- Affichage de l'échéance -->
+              @if (todo.deadline) {
+                <div class="mb-3">
+                  <div [class]="deadlineService.getDeadlineText(todo).color" class="flex items-center gap-1 text-xs">
+                    <span>{{ deadlineService.getDeadlineText(todo).text }}</span>
+                    <span class="text-gray-400">- {{ todo.deadline | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  </div>
+                </div>
+              }
+
               @if (todo.description) {
                 <p class="text-sm text-gray-600 mb-3">{{ todo.description }}</p>
               }
@@ -258,58 +315,88 @@ import { CommentsService } from '../services/comments';
         <div class="space-y-3">
           @for (todo of todoService.completedTodos(); track trackByTodoId($index, todo)) {
             <div
+              [class]="getCardClasses(todo)"
               class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-400"
               [appHighlight]="todo.priority === 'high' ? 'rgba(34, 197, 94, 0.1)' : 'transparent'"
               [appHighlightDelay]="todo.priority === 'high' ? 500 : 0"
             >
               <div class="flex justify-between items-start mb-2">
                 <h4 class="font-medium text-gray-900 line-through">{{ todo.title }}</h4>
-                <span
-                  class="px-2 py-1 text-xs font-semibold rounded-full"
-                  [class.bg-red-100]="todo.priority === 'high'"
-                  [class.text-red-800]="todo.priority === 'high'"
-                  [class.bg-yellow-100]="todo.priority === 'medium'"
-                  [class.text-yellow-800]="todo.priority === 'medium'"
-                  [class.bg-green-100]="todo.priority === 'low'"
-                  [class.text-green-800]="todo.priority === 'low'"
-                >
-                  {{ todo.priority | priority }}
-                </span>
-              </div>
-              @if (todo.description) {
-                <p class="text-sm text-gray-600 mb-3 line-through">{{ todo.description }}</p>
-              }
-                <div class="flex justify-between items-center text-xs text-gray-500">
-                  <span>Terminé le {{ todo.updatedAt | date: 'dd/MM/yyyy' }}</span>
-
-                  <div class="flex items-center gap-2">
-                  <button
-                    (click)="toggleComments(todo.id)"
-                    class="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 bg-gray-100 px-2 py-1 rounded"
+                <div class="flex items-center gap-2">
+                  <span
+                    class="px-2 py-1 text-xs font-semibold rounded-full"
+                    [class.bg-red-100]="todo.priority === 'high'"
+                    [class.text-red-800]="todo.priority === 'high'"
+                    [class.bg-yellow-100]="todo.priority === 'medium'"
+                    [class.text-yellow-800]="todo.priority === 'medium'"
+                    [class.bg-green-100]="todo.priority === 'low'"
+                    [class.text-green-800]="todo.priority === 'low'"
                   >
+                    {{ todo.priority | priority }}
+                  </span>
+
+                  <!-- Deadline Picker (read-only pour les terminés) -->
+                <app-deadline-picker
+                  [deadline]="todo.deadline || null"
+                  (deadlineChange)="updateDeadline(todo.id, $event)"
+                ></app-deadline-picker>
+
+                @if (commentService.getCommentsCount(todo.id)() > 0) {
+                  <div class="flex items-center gap-1 text-gray-500">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                     </svg>
-                    {{ showComments().has(todo.id) ? 'Masquer' : 'Commentaires' }}
-                  </button>
+                    <span class="text-xs">{{ commentService.getCommentsCount(todo.id)() }}</span>
+                  </div>
+                }
+              </div>
+            </div>
 
-                  <button (click)="deleteTodo(todo.id)" class="text-red-600 hover:text-red-800">
-                    Supprimer
-                  </button>
+            <!-- Affichage de l'échéance (avec style barré) -->
+            @if (todo.deadline) {
+              <div class="mb-3">
+                <div class="flex items-center gap-1 text-xs text-gray-500 line-through">
+                  <span>Échéance respectée</span>
+                  <span class="text-gray-400">- {{ todo.deadline | date: 'dd/MM/yyyy HH:mm' }}</span>
                 </div>
               </div>
-
-              @if (showComments().has(todo.id)) {
-              <div class="mt-3 pt-3 border-t border-gray-200">
-                <app-comments [todoId]="todo.id"></app-comments>
-              </div>
             }
+
+            @if (todo.description) {
+              <p class="text-sm text-gray-600 mb-3 line-through">{{ todo.description }}</p>
+            }
+              <div class="flex justify-between items-center text-xs text-gray-500">
+                <span>Terminé le {{ todo.updatedAt | date: 'dd/MM/yyyy' }}</span>
+
+                <div class="flex items-center gap-2">
+                <button
+                  (click)="toggleComments(todo.id)"
+                  class="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 bg-gray-100 px-2 py-1 rounded"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                  </svg>
+                  {{ showComments().has(todo.id) ? 'Masquer' : 'Commentaires' }}
+                </button>
+
+                <button (click)="deleteTodo(todo.id)" class="text-red-600 hover:text-red-800">
+                  Supprimer
+                </button>
+              </div>
+            </div>
+
+            @if (showComments().has(todo.id)) {
+            <div class="mt-3 pt-3 border-t border-gray-200">
+              <app-comments [todoId]="todo.id"></app-comments>
             </div>
           }
-        </div>
+          </div>
+        }
       </div>
-
+    </div>
+  </div>
   `,
   styles: [],
 })
@@ -327,8 +414,8 @@ export class TodoListComponent implements OnInit {
   todoService = inject(TodoService);
   private notificationService = inject(NotificationService);
   protected readonly commentService = inject(CommentsService);
+  protected readonly deadlineService = inject(DeadlineService);
   protected readonly showComments = signal(new Set<number>());
-
 
   async ngOnInit() {
     await this.loadTodos();
@@ -408,5 +495,23 @@ export class TodoListComponent implements OnInit {
 
   trackByTodoId(_: number, todo: Todo): string {
     return todo.id.toString();
+  }
+
+  async updateDeadline(todoId: number, deadline: Date | null): Promise<void> {
+    await this.todoService.updateDeadline(todoId, deadline);
+  }
+  getCardClasses(todo: Todo): string {
+    const baseClasses = ['bg-white', 'p-4', 'rounded-lg', 'shadow-sm', 'border-l-4'];
+
+    // Status-based border colors
+    if (todo.status === 'todo') baseClasses.push('border-gray-400');
+    if (todo.status === 'in-progress') baseClasses.push('border-blue-400');
+    if (todo.status === 'done') baseClasses.push('border-green-400');
+
+    // Deadline-based styling
+    const deadlineClasses = this.deadlineService.getDeadlineClasses(todo);
+    baseClasses.push(...deadlineClasses);
+
+    return baseClasses.join(' ');
   }
 }

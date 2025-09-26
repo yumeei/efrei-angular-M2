@@ -8,6 +8,9 @@ export interface Todo {
   createdBy: number;
   createdAt: Date;
   updatedAt: Date;
+  deadline?: Date;
+  isOverdue?: boolean;
+  daysUntilDeadline?: number;
 }
 
 export interface CreateTodoRequest {
