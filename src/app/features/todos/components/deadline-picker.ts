@@ -94,7 +94,7 @@ import { FormsModule } from '@angular/forms';
       <div
         class="fixed inset-0 z-40"
         (click)="togglePicker()"
-        (keydown)="onOverlayKeydown($event)"
+        (keydown.escape)="togglePicker()"
         role="button"
         aria-label="Close deadline picker"
         tabindex="0"
