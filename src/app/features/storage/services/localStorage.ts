@@ -4,49 +4,32 @@ import { Injectable } from '@angular/core';
   providedIn: 'root',
 })
 export class StorageService {
+
+  /** Sauvegarder une clé avec un objet */
   set<T>(key: string, value: T): void {
-    try {
-      const serializedValue = JSON.stringify(value);
-      localStorage.setItem(key, serializedValue);
-    } catch (error) {
-      console.error(`Error saving to localStorage with key "${key}":`, error);
-    }
+    localStorage.setItem(key, JSON.stringify(value));
   }
 
-  get<T>(key: string): T | null {
-    try {
-      const item = localStorage.getItem(key);
-      if (item === null) {
-        return null;
+  /** Charger une clé et convertir en type T */
+  get<T>(key: string, defaultValue?: T): T | undefined {
+    const data = localStorage.getItem(key);
+    if (data) {
+      try {
+        return JSON.parse(data) as T;
+      } catch (e) {
+        console.error(`Erreur parsing localStorage key="${key}":`, e);
       }
-      return JSON.parse(item) as T;
-    } catch (error) {
-      console.error(`Error parsing localStorage item with key "${key}":`, error);
-      // Nettoyer la clé corrompue
-      localStorage.removeItem(key);
-      return null;
     }
+    return defaultValue;
   }
 
   /** Supprimer une clé */
   remove(key: string): void {
-    try {
-      localStorage.removeItem(key);
-    } catch (error) {
-      console.error(`Error removing localStorage item with key "${key}":`, error);
-    }
+    localStorage.removeItem(key);
   }
 
   /** Vider tout le localStorage */
   clear(): void {
-    try {
-      localStorage.clear();
-    } catch (error) {
-      console.error('Error clearing localStorage:', error);
-    }
-  }
-
-  exists(key: string): boolean {
-    return localStorage.getItem(key) !== null;
+    localStorage.clear();
   }
 }
