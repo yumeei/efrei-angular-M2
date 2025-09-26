@@ -133,9 +133,9 @@ import { CommentsService } from '../../todos/services/comments';
 
       @if (activeTab() === 'tickets') {
         <div class="bg-white shadow rounded-lg">
-          <div class="px-6 py-4 border-b border-gray-200">
+          <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 class="text-xl font-semibold text-gray-900">Gestion des Tickets</h2>
-              <app-table-columns-manager tableKey="todos"></app-table-columns-manager>
+            <app-table-columns-manager tableKey="todos"></app-table-columns-manager>
           </div>
           <div class="p-6">
             @if (todos().length > 0) {
